@@ -139,7 +139,7 @@ class FrankaArm:
         
 
         print('initializing transformation')
-
+u
         # Precompute things and preallocate np memory for collision checking
         self._collision_boxes_data = np.zeros((len(FC.COLLISION_BOX_SHAPES), 10))
         self._collision_boxes_data[:, -3:] = FC.COLLISION_BOX_SHAPES
