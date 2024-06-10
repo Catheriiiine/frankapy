@@ -19,7 +19,7 @@ import abc
 
 import matplotlib.pyplot as plt
 import numpy as np
-from ravens.utils import utils
+from examples.utils import utils
 from scipy.interpolate import interp1d
 from scipy.spatial.transform import Rotation
 
@@ -133,52 +133,52 @@ class Planner(abc.ABC):
     plt.show()
 
 
-class PickPlacePlanner(Planner):
-  """A pick-and-place planner."""
+# class PickPlacePlanner(Planner):
+#   """A pick-and-place planner."""
 
-  NUM_POSES = 7
+#   NUM_POSES = 7
 
-  def _preprocess_poses(self, start_pose, pick_pose, place_pose):
-    self.start_pose = start_pose
+#   def _preprocess_poses(self, start_pose, pick_pose, place_pose):
+#     self.start_pose = start_pose
 
-    # Slightly lower pick and place z-coords to make contact code register.
-    mod = ((0, 0, -0.008), (0, 0, 0, 1))
-    self.pick_pose = utils.multiply(pick_pose, mod)
-    # self.place_pose = utils.multiply(place_pose, mod)
-    self.place_pose = place_pose
+#     # Slightly lower pick and place z-coords to make contact code register.
+#     mod = ((0, 0, -0.008), (0, 0, 0, 1))
+#     self.pick_pose = utils.multiply(pick_pose, mod)
+#     # self.place_pose = utils.multiply(place_pose, mod)
+#     self.place_pose = place_pose
 
-    # Generate intermediate waypoints.
-    prepick_to_pick = ((0, 0, self.height), (0, 0, 0, 1))
-    self.prepick_pose = utils.multiply(pick_pose, prepick_to_pick)
-    postpick_to_pick = ((0, 0, self.height), (0, 0, 0, 1))
-    self.postpick_pose = utils.multiply(pick_pose, postpick_to_pick)
-    preplace_to_place = ((0, 0, self.height), (0, 0, 0, 1))
-    self.preplace_pose = utils.multiply(place_pose, preplace_to_place)
-    postplace_to_place = ((0, 0, self.height), (0, 0, 0, 1))
-    self.postplace_pose = utils.multiply(place_pose, postplace_to_place)
+#     # Generate intermediate waypoints.
+#     prepick_to_pick = ((0, 0, self.height), (0, 0, 0, 1))
+#     self.prepick_pose = utils.multiply(pick_pose, prepick_to_pick)
+#     postpick_to_pick = ((0, 0, self.height), (0, 0, 0, 1))
+#     self.postpick_pose = utils.multiply(pick_pose, postpick_to_pick)
+#     preplace_to_place = ((0, 0, self.height), (0, 0, 0, 1))
+#     self.preplace_pose = utils.multiply(place_pose, preplace_to_place)
+#     postplace_to_place = ((0, 0, self.height), (0, 0, 0, 1))
+#     self.postplace_pose = utils.multiply(place_pose, postplace_to_place)
 
-    self.poses = [
-        self.start_pose,
-        self.prepick_pose,
-        self.pick_pose,
-        self.postpick_pose,
-        self.preplace_pose,
-        self.place_pose,
-        self.postplace_pose,
-    ]
+#     self.poses = [
+#         self.start_pose,
+#         self.prepick_pose,
+#         self.pick_pose,
+#         self.postpick_pose,
+#         self.preplace_pose,
+#         self.place_pose,
+#         self.postplace_pose,
+#     ]
 
-  def _postprocess_poses(self, poses, xnew):
-    """Add suction commands."""
-    suction_idxs = [2, 5]
-    suction_times = [self.times[i] for i in suction_idxs]
-    suction_loc = [np.argwhere(xnew == s)[0][0] for s in suction_times]
-    actions = []
-    for i, pose in enumerate(poses):
-      s = 0
-      if i in suction_loc:
-        s = 1
-      actions.append({"move_cmd": pose, "suction_cmd": s})
-    return actions
+#   def _postprocess_poses(self, poses, xnew):
+#     """Add suction commands."""
+#     suction_idxs = [2, 5]
+#     suction_times = [self.times[i] for i in suction_idxs]
+#     suction_loc = [np.argwhere(xnew == s)[0][0] for s in suction_times]
+#     actions = []
+#     for i, pose in enumerate(poses):
+#       s = 0
+#       if i in suction_loc:
+#         s = 1
+#       actions.append({"move_cmd": pose, "suction_cmd": s})
+#     return actions
 
 
 class PushPlanner(Planner):

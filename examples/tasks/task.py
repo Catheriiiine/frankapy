@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2024 The Ravens Authors.
+# Copyright 2024 The examples Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,11 +23,11 @@ import tempfile
 
 import cv2
 import numpy as np
-from ravens.tasks import cameras
-from ravens.tasks import planners
-from ravens.tasks import primitives
-from ravens.tasks.grippers import Suction
-from ravens.utils import utils
+from examples.tasks import cameras
+from examples.tasks import planners
+from examples.tasks import primitives
+from examples.utils import utils
+from frankapy import FrankaArm
 
 import six
 import pybullet as p
@@ -43,7 +43,7 @@ class Task():
       continuous: Set to `True` if you want the continuous variant.
     """
     self.continuous = continuous
-    self.ee = Suction
+    self.robot = FrankaArm()
     self.mode = 'train'
     self.sixdof = False
     if continuous:
@@ -66,7 +66,7 @@ class Task():
 
     self.assets_root = None
 
-  def reset(self, env):  # pylint: disable=unused-argument
+  def reset(self):  # pylint: disable=unused-argument
     if not self.assets_root:
       raise ValueError('assets_root must be set for task, '
                        'call set_assets_root().')
@@ -417,9 +417,8 @@ class ContinuousOracle:
 
   def __init__(
       self,
-      env,
+      robot,
       base_oracle_cls,
-      ee,
       t_max = 10.0,
       steps_per_seg = 2,
       height = 0.32,
@@ -434,11 +433,11 @@ class ContinuousOracle:
       steps_per_seg:
       height:
     """
-    self._env = env
-    self._base_oracle = base_oracle_cls(env)
+    self._env = robot
+    self._base_oracle = base_oracle_cls(robot)
     self.steps_per_seg = steps_per_seg
 
-    planner_cls = planners.PickPlacePlanner if ee == Suction else planners.PushPlanner
+    planner_cls = planners.PushPlanner
     self._planner = planner_cls(steps_per_seg, t_max, height)
 
     self._actions = []
@@ -450,7 +449,7 @@ class ContinuousOracle:
       act = self._base_oracle.act(obs, info)
       if act is None:
         return
-      self._actions = self._planner(self._env.get_ee_pose(), act['pose0'],
+      self._actions = self._planner(self._env.get_pose(), act['pose0'],
                                     act['pose1'])
     act = self._actions.pop(0)
     act['acts_left'] = len(self._actions)

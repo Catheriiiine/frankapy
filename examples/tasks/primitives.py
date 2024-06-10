@@ -16,77 +16,11 @@
 """Motion primitives."""
 
 import numpy as np
-from ravens.utils import utils
+from examples.utils import utils
+from autolab_core import RigidTransform
+from frankapy import FrankaArm
 
-
-class PickPlace():
-  """Pick and place primitive."""
-
-  def __init__(self, height=0.32, speed=0.01):
-    self.height, self.speed = height, speed
-
-  def __call__(self, movej, movep, ee, pose0, pose1):
-    """Execute pick and place primitive.
-
-    Args:
-      movej: function to move robot joints.
-      movep: function to move robot end effector pose.
-      ee: robot end effector.
-      pose0: SE(3) picking pose.
-      pose1: SE(3) placing pose.
-
-    Returns:
-      timeout: robot movement timed out if True.
-    """
-
-    pick_pose, place_pose = pose0, pose1
-
-    # Execute picking primitive.
-    prepick_to_pick = ((0, 0, 0.32), (0, 0, 0, 1))
-    postpick_to_pick = ((0, 0, self.height), (0, 0, 0, 1))
-    prepick_pose = utils.multiply(pick_pose, prepick_to_pick)
-    postpick_pose = utils.multiply(pick_pose, postpick_to_pick)
-    timeout = movep(prepick_pose)
-
-    # Move towards pick pose until contact is detected.
-    delta = (np.float32([0, 0, -0.001]),
-             utils.eulerXYZ_to_quatXYZW((0, 0, 0)))
-    targ_pose = prepick_pose
-    while not ee.detect_contact():  # and target_pose[2] > 0:
-      targ_pose = utils.multiply(targ_pose, delta)
-      timeout |= movep(targ_pose)
-      if timeout:
-        return True
-
-    # Activate end effector, move up, and check picking success.
-    ee.activate()
-    timeout |= movep(postpick_pose, self.speed)
-    pick_success = ee.check_grasp()
-
-    # Execute placing primitive if pick is successful.
-    if pick_success:
-      preplace_to_place = ((0, 0, self.height), (0, 0, 0, 1))
-      postplace_to_place = ((0, 0, 0.32), (0, 0, 0, 1))
-      preplace_pose = utils.multiply(place_pose, preplace_to_place)
-      postplace_pose = utils.multiply(place_pose, postplace_to_place)
-      targ_pose = preplace_pose
-      while not ee.detect_contact():
-        targ_pose = utils.multiply(targ_pose, delta)
-        timeout |= movep(targ_pose, self.speed)
-        if timeout:
-          return True
-      ee.release()
-      timeout |= movep(postplace_pose)
-
-    # Move to prepick pose if pick is not successful.
-    else:
-      ee.release()
-      timeout |= movep(prepick_pose)
-
-    return timeout
-
-
-def push(movej, movep, ee, pose0, pose1):  # pylint: disable=unused-argument
+def push(fa, pose0, pose1):  # pylint: disable=unused-argument
   """Execute pushing primitive.
 
   Args:
@@ -99,6 +33,14 @@ def push(movej, movep, ee, pose0, pose1):  # pylint: disable=unused-argument
   Returns:
     timeout: robot movement timed out if True.
   """
+  # reset franka to its home joints
+  fa.reset_joints()
+
+  # # read functions
+  # T_ee_world = fa.get_pose()
+  # print('Translation: {} | Rotation: {}'.format(T_ee_world.translation, T_ee_world.quaternion))
+
+  # pose0 = T_ee_world
 
   # Adjust push start and end positions.
   pos0 = np.float32((pose0[0][0], pose0[0][1], 0.005))
@@ -109,61 +51,79 @@ def push(movej, movep, ee, pose0, pose1):  # pylint: disable=unused-argument
   pos0 -= vec * 0.02
   pos1 -= vec * 0.05
 
-  # Align spatula against push direction.
+# Align spatula against push direction.
   theta = np.arctan2(vec[1], vec[0])
   rot = utils.eulerXYZ_to_quatXYZW((0, 0, theta))
 
   over0 = (pos0[0], pos0[1], 0.31)
   over1 = (pos1[0], pos1[1], 0.31)
 
-  # Execute push.
-  timeout = movep((over0, rot))
-  timeout |= movep((pos0, rot))
-  n_push = np.int32(np.floor(np.linalg.norm(pos1 - pos0) / 0.01))
+  # # joint controls
+  # print('Rotating last joint')
+  # joints = fa.get_joints()
+  # joints[6] += np.deg2rad(45)
+  # fa.goto_joints(joints)
+  # joints[6] -= np.deg2rad(45)
+  # fa.goto_joints(joints)
+
+# end-effector pose control
+  print('Rotation in end-effector frame')
+  T1 = RigidTransform(
+      translation=over0,
+      rotation=rot,
+      from_frame='franka_tool', to_frame='franka_tool'
+    )
+  fa.goto_pose(T1)
+
+  T2 = RigidTransform(translation=pos0, rotation=rot)
+  fa.goto_pose(T2)
+
+  print('Translation')
+  n_push += (np.int32(np.floor(np.linalg.norm(pos1 - pos0) / 0.01)))
   for _ in range(n_push):
     target = pos0 + vec * n_push * 0.01
-    timeout |= movep((target, rot), speed=0.003)
-  timeout |= movep((pos1, rot), speed=0.003)
-  timeout |= movep((over1, rot))
-  return timeout
+    fa.goto_pose(RigidTransform(translation=target, rotation=rot), speed=0.003)
+  
+  # Move to the end position
+  fa.goto_pose(RigidTransform(translation=pos1, rotation=rot), speed=0.003)
 
+  # Move to 'over' position above the end
+  fa.goto_pose(RigidTransform(translation=over1, rotation=rot))
 
-class PickPlaceContinuous:
-  """A continuous pick-and-place primitive."""
-
-  def __init__(self, speed=0.01):
-    self.speed = speed
-    self.reset()
-
-  def reset(self):
-    self.s_bit = 0  # Tracks the suction state.
-
-  def __call__(self, movej, movep, ee, action):
-    del movej
-    timeout = movep(action['move_cmd'], speed=self.speed)
-    if timeout:
-      return True
-    if action['suction_cmd']:
-      if self.s_bit:
-        ee.release()
-      else:
-        ee.activate()
-      self.s_bit = not self.s_bit
-    return timeout
 
 
 class PushContinuous:
   """A continuous pushing primitive."""
 
-  def __init__(self, fast_speed=0.01, slow_speed=0.003):
+  def __init__(self, robot, fast_speed=0.01, slow_speed=0.003):
+    self.robot = FrankaArm()
     self.fast_speed = fast_speed
     self.slow_speed = slow_speed
 
   def reset(self):
-    pass
+    # Reset might be to return the robot to a home or safe pose
+    self.robot.reset_joints()
+    self.robot.reset_pose()
 
-  def __call__(self, movej, movep, ee, action):
-    del movej, ee
-    speed = self.slow_speed if action['slowdown_cmd'] else self.fast_speed
-    timeout = movep(action['move_cmd'], speed=speed)
+  def __call__(self, action):
+    # Extract pose and slowdown command from action dictionary
+    pose = action['move_cmd'][0]
+    orientation = action['move_cmd'][1]
+    slowdown_cmd = action['slowdown_cmd']
+
+    # Create a RigidTransform from the pose and orientation
+    transformation = RigidTransform(translation=np.array(pose), rotation=orientation)
+
+    # Determine speed
+    speed = self.slow_speed if slowdown_cmd else self.fast_speed
+
+    # Execute the movement
+    timeout = self.robot.goto_pose(transformation, speed=speed)
+
     return timeout
+  
+if __name__ == "__main__":
+  fa = FrankaArm()
+  pose0 = (0, 0)
+  pose1 = (0.5, 0.5)
+  push(fa, pose0, pose1)

@@ -25,13 +25,13 @@ where:
     ./start_control_pc.sh -i iam-space -u iam-lab -p 12345678 -d ~/Documents/franka-interface -r 1 -s 0
     "
 
-control_pc_uname="iam-lab"
-control_pc_use_password=0
-control_pc_password=""
-control_pc_franka_interface_path="Documents/franka-interface"
+control_pc_uname="catherine"
+control_pc_use_password=1
+control_pc_password="gyy03271128"
+control_pc_franka_interface_path="/home/catherine/protobuf-21.8/franka-interface"
 start_franka_interface=1
 robot_number=1
-robot_ip="172.16.0.2"
+robot_ip="192.168.0.1"
 with_gripper=1
 old_gripper=0
 log_on_franka_interface=0

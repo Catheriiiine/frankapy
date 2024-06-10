@@ -20,7 +20,7 @@ if [ "$control_pc_ip_address" = "localhost" ]; then
     bash
 else
 if [ "$control_pc_use_password" = "0" ]; then
-ssh -tt $control_pc_uname@$control_pc_ip_address << EOSSH
+ssh -X -tt $control_pc_uname@$control_pc_ip_address << EOSSH
 cd $control_pc_franka_interface_path
 source $rosmaster_path $control_pc_ip_address $workstation_ip_address
 source $catkin_ws_setup_path
