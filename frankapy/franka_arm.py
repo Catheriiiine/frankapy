@@ -136,6 +136,9 @@ class FrankaArm:
         # set default identity tool delta pose
         self._tool_delta_pose = RigidTransform(from_frame='franka_tool', 
                                                to_frame='franka_tool_base')
+        
+
+        print('initializing transformation')
 
         # Precompute things and preallocate np memory for collision checking
         self._collision_boxes_data = np.zeros((len(FC.COLLISION_BOX_SHAPES), 10))

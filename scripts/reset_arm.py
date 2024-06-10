@@ -9,6 +9,7 @@ if __name__ == '__main__':
 
     print('Starting robot')
     fa = FrankaArm()
+    print('initalization complete')
 
     if args.use_pose:
         print('Reset with pose')
