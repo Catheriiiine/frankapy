@@ -130,3 +130,8 @@ catkin_ws/devel
 catkin_ws/build
 catkin_ws/logs
 catkin_ws/.catkin_tools
+
+.vscode
+protobuf-21.8
+franka_interface_msgs
+protobuf-all-21.8.zip
